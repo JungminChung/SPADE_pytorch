@@ -17,10 +17,10 @@ Should prepare dataset like under form.
 └── DATASET
     ├── dataset1 
     │   ├── train
-    │   └── train
+    │   └── test
     ├── dataset2 
     │   ├── train
-    │   └── train
+    │   └── test
     └── ...
 ```
 
