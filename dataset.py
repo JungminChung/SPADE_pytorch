@@ -2,7 +2,7 @@ import torch, os
 from PIL import Image
 from torch.utils.data.dataset import Dataset
 
-class cityDataset(Dataset):
+class customDataset(Dataset):
     def __init__(self, origin_path, segmen_path, transform=None):
         self.origin_path = origin_path
         self.segmen_path = segmen_path

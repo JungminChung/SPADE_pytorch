@@ -37,26 +37,26 @@ class SPADE(nn.Module):
 
 
 class SPADE_Res(nn.Module):
-    def __init__(self, in_channel, out_channel):
+    def __init__(self, seg_channel, in_channel, out_channel):
         super(SPADE_Res, self).__init__()
-        segmen_channel = 3 
+        seg_channel = seg_channel
         self.do_resblk = (in_channel != out_channel) # learn re-sblock when input channel differ from output channel 
         middle_channel = min(in_channel, out_channel)
 
-        self.SPADE_1 = SPADE(seg_channel=segmen_channel, main_channel=in_channel)
+        self.SPADE_1 = SPADE(seg_channel=seg_channel, main_channel=in_channel)
         self.SPADE_1_back = nn.Sequential(
             nn.LeakyReLU(negative_slope=0.2, inplace=False),
             SN(nn.Conv2d(in_channels=in_channel, out_channels=middle_channel, kernel_size=3, padding=1))
         )
         
-        self.SPADE_2 = SPADE(seg_channel=segmen_channel, main_channel=middle_channel)
+        self.SPADE_2 = SPADE(seg_channel=seg_channel, main_channel=middle_channel)
         self.SPADE_2_back = nn.Sequential(
             nn.LeakyReLU(negative_slope=0.2, inplace=False),
             SN(nn.Conv2d(in_channels=middle_channel, out_channels=out_channel, kernel_size=3, padding=1))
         )
         
         if self.do_resblk : 
-            self.SPADE_Res = SPADE(seg_channel=segmen_channel, main_channel=in_channel)
+            self.SPADE_Res = SPADE(seg_channel=seg_channel, main_channel=in_channel)
             self.SPADE_Res_back = nn.Sequential(
                 # nn.LeakyReLU(negative_slope=0.2, inplace=False),
                 SN(nn.Conv2d(in_channels=in_channel, out_channels=out_channel, kernel_size=1, stride=1, padding=0, bias=False))
@@ -139,26 +139,27 @@ class image_encoder(nn.Module):
 
         
 class generator(nn.Module):
-    def __init__(self):
+    def __init__(self, seg_channel):
         super(generator, self).__init__()
+        self.nf = 32
 
-        self.latent_linear = nn.Linear(in_features=256, out_features=16384)
+        self.latent_linear = nn.Linear(in_features=256, out_features=4*4*self.nf*16)
         
-        self.SPADE_Res_4_4 = SPADE_Res(in_channel=1024, out_channel=1024)
-        self.SPADE_Res_8_8 = SPADE_Res(in_channel=1024, out_channel=1024)
-        self.SPADE_Res_16_16 = SPADE_Res(in_channel=1024, out_channel=1024)
-        self.SPADE_Res_32_32 = SPADE_Res(in_channel=1024, out_channel=512)
-        self.SPADE_Res_64_64 = SPADE_Res(in_channel=512, out_channel=256)
-        self.SPADE_Res_128_128 = SPADE_Res(in_channel=256, out_channel=128)
-        self.SPADE_Res_256_256 = SPADE_Res(in_channel=128, out_channel=64)
+        self.SPADE_Res_4_4     = SPADE_Res(seg_channel=seg_channel, in_channel=self.nf*16, out_channel=self.nf*16)
+        self.SPADE_Res_8_8     = SPADE_Res(seg_channel=seg_channel, in_channel=self.nf*16, out_channel=self.nf*16)
+        self.SPADE_Res_16_16   = SPADE_Res(seg_channel=seg_channel, in_channel=self.nf*16, out_channel=self.nf*16)
+        self.SPADE_Res_32_32   = SPADE_Res(seg_channel=seg_channel, in_channel=self.nf*16, out_channel=self.nf*8 )
+        self.SPADE_Res_64_64   = SPADE_Res(seg_channel=seg_channel, in_channel=self.nf*8 , out_channel=self.nf*4 )
+        self.SPADE_Res_128_128 = SPADE_Res(seg_channel=seg_channel, in_channel=self.nf*4 , out_channel=self.nf*2 )
+        self.SPADE_Res_256_256 = SPADE_Res(seg_channel=seg_channel, in_channel=self.nf*2 , out_channel=self.nf*1 )
 
         self.final_lrelu = nn.LeakyReLU(0.2)
-        self.final_conv = nn.Conv2d(in_channels=64, out_channels=3, kernel_size=3, stride=2, padding=1)
+        self.final_conv = nn.Conv2d(in_channels=self.nf*1, out_channels=3, kernel_size=3, stride=2, padding=1)
         self.final_acti = nn.Tanh()
 
     def forward(self, z, seg):
         z = self.latent_linear(z)
-        z = z.view(-1, 1024, 4, 4)
+        z = z.view(-1, self.nf*16, 4, 4)
 
         out = self.SPADE_Res_4_4(z, seg, seg_resize=4)
         out = F.interpolate(out, size=out.shape[2]*2, mode='nearest')

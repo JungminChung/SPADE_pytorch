@@ -6,7 +6,7 @@ import utils
 import networks
 from loss import *
 from networks import *
-from dataset import cityDataset
+from dataset import *
 
 from tqdm import tqdm 
 
@@ -51,6 +51,7 @@ class GAUGAN(object):
         self.use_vgg = args.use_vgg
         self.n_summary = args.n_summary
         self.sum_dir = args.sum_dir
+        self.seg_channel = args.seg_channel
 
     def load_dataset(self):
         self.transform_img = transforms.Compose([
@@ -58,9 +59,9 @@ class GAUGAN(object):
                                 transforms.ToTensor(),
                             ])
 
-        self.dataset = cityDataset(origin_path=self.img_path, 
+        self.dataset = customDataset(origin_path=self.img_path, 
                                     segmen_path=self.seg_path, 
-                                    transform=self.transform_img
+                                    transform=self.transform_img,
                                 )
 
         self.loader = DataLoader(dataset=self.dataset, 
@@ -69,10 +70,10 @@ class GAUGAN(object):
                                     num_workers=self.num_workers,
                                     drop_last=True,
                                 )
-    
-        self.test_dataset = cityDataset(origin_path=self.test_img_path, 
+
+        self.test_dataset = customDataset(origin_path=self.test_img_path, 
                                     segmen_path=self.test_seg_path, 
-                                    transform=self.transform_img
+                                    transform=self.transform_img,
                                 )
 
         self.test_loader = DataLoader(dataset=self.test_dataset, 
@@ -87,7 +88,7 @@ class GAUGAN(object):
         # self.disHAL = nn.DataParallel(discriminator(down_scale=2)).to(self.device)
         # self.disQUA = nn.DataParallel(discriminator(down_scale=4)).to(self.device)
         self.enc = image_encoder().to(self.device)
-        self.gen = generator().to(self.device)
+        self.gen = generator(seg_channel=self.seg_channel).to(self.device)
         self.disORI = discriminator(down_scale=1).to(self.device)
         self.disHAL = discriminator(down_scale=2).to(self.device)
         # self.disQUA = discriminator(down_scale=4).to(self.device)
@@ -311,19 +312,12 @@ class GAUGAN(object):
 
     def eval(self, seg, real_image):
         _, _, z = self.enc(real_image)
-        # print(torch.mean(z).item(), torch.std(z).item(), torch.median(z).item(), torch.min(z).item(), torch.max(z).item())
         fake_image_ref = self.gen(z, seg)
 
         latent = torch.randn(self.test_batch_size, 256).to(self.device)
-        # print(torch.mean(latent).item(), torch.std(latent).item(), torch.median(latent).item(), torch.min(latent).item(), torch.max(latent).item())
         fake_image_latent = self.gen(latent, seg)
 
         return fake_image_ref, fake_image_latent
 
     def test(self):
         pass 
-
-    # def accumulate(self, origin_net, target_net, remain=0.8):
-    #     for origin_param, target_param in zip(origin_net.parameters(), target_net.parameters()):
-    #         origin_param.data.copy_(remain*origin_param.data + (1-remain)*target_param.data)
-        
