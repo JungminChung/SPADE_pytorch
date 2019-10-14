@@ -6,7 +6,7 @@ def folder_setting():
     pwd_dir = os.getcwd()
     results_dir = os.path.join(pwd_dir,'results')
     output_folders = os.listdir(results_dir)
-    inner_folders = ['ckpt', 'images', 'source', 'summary']
+    inner_folders = ['ckpt', 'images', 'source', 'summary', 'test_output']
 
     if len(output_folders) == 0 : 
         folder_name = 'output_0001'
@@ -19,6 +19,7 @@ def folder_setting():
         image_folder = os.path.join(output_folder, 'images')
         source_folder = os.path.join(output_folder, 'source')
         summary_folder = os.path.join(output_folder, 'summary')
+        test_folder = os.path.join(output_folder, 'test_output')
 
         py_files = glob.glob('*.py')
         for py_file in py_files : 
@@ -39,10 +40,11 @@ def folder_setting():
         image_folder = os.path.join(output_folder, 'images')
         source_folder = os.path.join(output_folder, 'source')
         summary_folder = os.path.join(output_folder, 'summary')
+        test_folder = os.path.join(output_folder, 'test_output')
 
         py_files = glob.glob('*.py')
         for py_file in py_files : 
             copyfile(os.path.join(pwd_dir, py_file), os.path.join(source_folder, py_file))
             
         
-        return ckpt_folder, image_folder, source_folder, summary_folder
+    return ckpt_folder, image_folder, source_folder, summary_folder, test_folder

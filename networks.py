@@ -12,6 +12,7 @@ class SPADE(nn.Module):
         self.main_channel = main_channel
         self.n_hidden = 128 
 
+        # self.batch = nn.SyncBatchNorm(self.main_channel)
         self.batch = nn.BatchNorm2d(self.main_channel)
 
         self.share_cov = nn.Sequential(
@@ -22,15 +23,13 @@ class SPADE(nn.Module):
         self.beta = nn.Conv2d(in_channels=self.n_hidden, out_channels=self.main_channel, kernel_size=3, stride=1, padding=1)
 
     def forward(self, x, seg, seg_resize):
-        # x = 'sync_batch_norm'(x) # input channel 
-        x = self.batch(x)
+        x = self.batch(x) # input channel
 
         seg = F.interpolate(input=seg, size=seg_resize, mode='nearest')
         seg_share = self.share_cov(seg)
         seg_gamma = self.gamma(seg_share)
         seg_beta = self.beta(seg_share)
         
-        # x = x * seg_gamma + seg_beta 
         x = x * (1 + seg_gamma) + seg_beta
 
         return x
@@ -141,7 +140,7 @@ class image_encoder(nn.Module):
 class generator(nn.Module):
     def __init__(self, seg_channel):
         super(generator, self).__init__()
-        self.nf = 32
+        self.nf = 64
 
         self.latent_linear = nn.Linear(in_features=256, out_features=4*4*self.nf*16)
         

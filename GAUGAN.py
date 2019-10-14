@@ -15,6 +15,8 @@ from torchvision import transforms
 from torch.utils.data import DataLoader
 from torchvision.utils import make_grid, save_image
 
+from torch.nn import DataParallel as DP
+
 from tensorboardX import SummaryWriter
 
 class GAUGAN(object):
@@ -36,7 +38,6 @@ class GAUGAN(object):
         self.lambda_kl =args.lambda_kl
         self.lambda_vgg =args.lambda_vgg
         self.grid_n_row = args.grid_n_row
-        # self.grid_n_col = args.grid_n_col
         self.n_save_image = args.n_save_image
         self.img_dir = args.img_dir
         self.GAN_D_loss_type = args.GAN_D_loss_type
@@ -82,16 +83,11 @@ class GAUGAN(object):
 
     def build_model(self): 
         ########## Networks ##########
-        # self.enc = nn.DataParallel(image_encoder()).to(self.device)
-        # self.gen = nn.DataParallel(generator()).to(self.device)
-        # self.disORI = nn.DataParallel(discriminator(down_scale=1)).to(self.device)
-        # self.disHAL = nn.DataParallel(discriminator(down_scale=2)).to(self.device)
-        # self.disQUA = nn.DataParallel(discriminator(down_scale=4)).to(self.device)
-        self.enc = image_encoder().to(self.device)
-        self.gen = generator(seg_channel=self.seg_channel).to(self.device)
-        self.disORI = discriminator(down_scale=1).to(self.device)
-        self.disHAL = discriminator(down_scale=2).to(self.device)
-        # self.disQUA = discriminator(down_scale=4).to(self.device)
+        self.enc = DP(image_encoder()).to(self.device)
+        self.gen = DP(generator(seg_channel=self.seg_channel)).to(self.device)
+        self.disORI = DP(discriminator(down_scale=1)).to(self.device)
+        self.disHAL = DP(discriminator(down_scale=2)).to(self.device)
+        # self.disQUA = DP(discriminator(down_scale=4)).to(self.device)
 
         ########## Init Networks with Xavier normal ##########
         self.enc.apply(networks._init_weights)
@@ -99,16 +95,6 @@ class GAUGAN(object):
         self.disORI.apply(networks._init_weights)
         self.disHAL.apply(networks._init_weights)
         # self.disQUA.apply(networks._init_weights)
-
-        # ########## Average Weighted Networks and Setting ##########
-        # self.enc_ave = image_encoder().to(self.device)
-        # self.gen_ave = generator().to(self.device)
-        # # self.accumulate(self.enc_ave, self.enc, 0)
-        # # self.accumulate(self.gen_ave, self.gen, 0)
-        # self.enc_ave.load_state_dict(self.enc.state_dict())
-        # self.gen_ave.load_state_dict(self.gen.state_dict())
-        # self.enc_ave.train(False)
-        # self.gen_ave.train(False)
 
         ########## Loss ##########
         self.KLloss = KL_loss(self.device)
@@ -177,18 +163,12 @@ class GAUGAN(object):
 
             list_real_ORI, list_fake_ORI = self.disORI(real_image, fake_image, seg)
             list_real_HAL, list_fake_HAL = self.disHAL(real_image, fake_image, seg)
-            # _, D_real_ORI = self.disORI(real_image, seg)
-            # _, D_real_HAL = self.disHAL(real_image, seg)
-            # _, D_real_QUA = self.disQUA(real_image, seg)
-
-            # _, D_fake_ORI = self.disORI(fake_image, seg)
-            # _, D_fake_HAL = self.disHAL(fake_image, seg)
-            # _, D_fake_QUA = self.disQUA(fake_image, seg)
+            # list_real_QUA, list_fake_QUA = self.disQUA(real_image, fake_image, seg)
 
             listed_D_real = [list_real_ORI[-1], list_real_HAL[-1]]
             listed_D_fake = [list_fake_ORI[-1], list_fake_HAL[-1]]
-            # listed_D_real = [D_real_ORI, D_real_HAL, D_real_QUA]
-            # listed_D_fake = [D_fake_ORI, D_fake_HAL, D_fake_QUA]
+            # listed_D_real = [list_real_ORI[-1], list_real_HAL[-1], list_real_QUA[-1]]
+            # listed_D_fake = [list_fake_ORI[-1], list_fake_HAL[-1], list_fake_QUA[-1]]
 
             GAN_D_real_loss, GAN_D_fake_loss, GAN_D_loss = self.GAN_D_loss(listed_D_real, listed_D_fake)
 
@@ -205,27 +185,20 @@ class GAUGAN(object):
 
                 list_real_ORI, list_fake_ORI = self.disORI(real_image, fake_image, seg)
                 list_real_HAL, list_fake_HAL = self.disHAL(real_image, fake_image, seg)
-                # FMs_real_ORI, D_real_ORI = self.disORI(real_image, seg)
-                # FMs_real_HAL, D_real_HAL = self.disHAL(real_image, seg)
-                # FMs_real_QUA, D_real_QUA = self.disQUA(real_image, seg)
-
-                # FMs_fake_ORI, D_fake_ORI = self.disORI(fake_image, seg)
-                # FMs_fake_HAL, D_fake_HAL = self.disHAL(fake_image, seg)
-                # FMs_fake_QUA, D_fake_QUA = self.disQUA(fake_image, seg)
+                # list_real_QUA, list_fake_QUA = self.disQUA(real_image, fake_image, seg)
 
                 listed_FMs_D_real = [list_real_ORI[:-1], list_real_HAL[:-1]]
                 listed_FMs_D_fake = [list_fake_ORI[:-1], list_fake_HAL[:-1]]
-                # listed_FMs_D_real = [FMs_real_ORI, FMs_real_HAL, FMs_real_QUA]
-                # listed_FMs_D_fake = [FMs_fake_ORI, FMs_fake_HAL, FMs_fake_QUA]
+                # listed_FMs_D_real = [list_real_ORI[:-1], list_real_HAL[:-1], list_real_QUA[:-1]]
+                # listed_FMs_D_fake = [list_fake_ORI[:-1], list_fake_HAL[:-1], list_fake_QUA[:-1]]
 
                 listed_D_real = [list_real_ORI[-1], list_real_HAL[-1]]
                 listed_D_fake = [list_fake_ORI[-1], list_fake_HAL[-1]]
-                # listed_D_real = [D_real_ORI, D_real_HAL, D_real_QUA]
-                # listed_D_fake = [D_fake_ORI, D_fake_HAL, D_fake_QUA]
+                # listed_D_real = [list_real_ORI[-1], list_real_HAL[-1], list_real_QUA[-1]]
+                # listed_D_fake = [list_fake_ORI[-1], list_fake_HAL[-1], list_fake_QUA[-1]]
 
                 GAN_G_loss = self.GAN_G_loss(listed_D_fake)
                 fm_loss = self.FMloss(listed_FMs_D_real, listed_FMs_D_fake)
-                # kl_loss = 0
                 kl_loss = self.KLloss(mu, squ_sigma)
                 if self.use_vgg : 
                     vgg_loss = self.VGGloss(real_image, fake_image)
@@ -237,8 +210,6 @@ class GAUGAN(object):
                     GAN_G = GAN_G_loss + self.lambda_fm * fm_loss + self.lambda_kl * kl_loss + self.lambda_vgg * vgg_loss
                 GAN_G.backward()
                 self.G_optim.step()
-                # self.accumulate(self.enc_ave, self.enc)
-                # self.accumulate(self.gen_ave, self.gen)
 
             if step % self.n_save == 0 : 
                 self.save_ckpt(self.ckpt_dir, step, epoch, self.save_Dis)
@@ -278,7 +249,7 @@ class GAUGAN(object):
         if save_Dis : 
             model_dict['disORI'] = self.disORI.state_dict()
             model_dict['disHAL'] = self.disHAL.state_dict()
-            model_dict['disQUA'] = self.disQUA.state_dict()
+            # model_dict['disQUA'] = self.disQUA.state_dict()
         torch.save(model_dict, os.path.join(dir, f'{str(step+1).zfill(7)}.ckpt'))
 
 
@@ -308,7 +279,7 @@ class GAUGAN(object):
         if save_Dis:
             self.disORI.load_state_dict(model_dict['disORI'])
             self.disHAL.load_state_dict(model_dict['disHAL'])
-            self.disQUA.load_state_dict(model_dict['disQUA'])
+            # self.disQUA.load_state_dict(model_dict['disQUA'])
 
     def eval(self, seg, real_image):
         _, _, z = self.enc(real_image)

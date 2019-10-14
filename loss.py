@@ -9,10 +9,7 @@ class KL_loss(nn.Module):
         self.device = device 
 
     def forward(self, mu, logvar):
-        # ones = torch.ones_like(mu).to(self.device)
-        # kl_loss = -0.5 * torch.sum(ones + logvar - mu.pow(2) - logvar.exp())
         kl_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-        # kl_loss = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
 
         return(kl_loss)
 
@@ -120,8 +117,6 @@ class VGG_loss(nn.Module):
             param.requires_grad= False
 
     def forward(self, real_image, fake_image):
-        # real_image = self.denorm(real_image)
-        # fake_image = self.denorm(fake_image)
         loss = 0 
 
         real_h = self.slice1(real_image)
